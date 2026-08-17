@@ -24,7 +24,7 @@ app.post("/classify", async (req, res) => {
 攻撃名：
 ${attackName}
 
-以下の5種類から必ず1つだけ選んでください。
+以下の5種類から必ず1つ選んでください。
 
 炎
 雷
@@ -32,16 +32,30 @@ ${attackName}
 風
 ビーム
 
-返答は属性名だけにしてください。
-例：
-炎
+さらに、なぜその属性だと判断したのか、
+ゲーム画面に表示できる短い理由を1文で考えてください。
+
+必ず以下の形式で返してください。
+
+属性：炎
+理由：名前から強い熱や爆発のイメージを感じるためです。
 `
         });
 
-        const attackType = response.output_text.trim();
+        const text = response.output_text.trim();
+
+        const typeMatch = text.match(/属性[：:]\s*(炎|雷|氷|風|ビーム)/);
+        const reasonMatch = text.match(/理由[：:]\s*(.+)/);
+
+        const attackType = typeMatch ? typeMatch[1] : "炎";
+
+        const reason = reasonMatch
+            ? reasonMatch[1].trim()
+            : "技名のイメージからこの属性と判断しました。";
 
         res.json({
-            attackType: attackType
+            attackType: attackType,
+            reason: reason
         });
 
     } catch (error) {
@@ -53,6 +67,6 @@ ${attackName}
     }
 });
 
-app.listen(3000, () => {
-    console.log("サーバー起動：http://localhost:3000");
+app.listen(process.env.PORT || 3000, () => {
+    console.log("サーバー起動");
 });
