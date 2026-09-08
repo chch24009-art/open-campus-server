@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const OpenAI = require("openai");
+const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
 
 const app = express();
@@ -8,9 +9,26 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// =========================
+// OpenAI
+// =========================
+
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
+
+// =========================
+// Supabase
+// =========================
+
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SECRET_KEY
+);
+
+// =========================
+// AIによる攻撃名分類
+// =========================
 
 app.post("/classify", async (req, res) => {
     try {
@@ -66,6 +84,83 @@ ${attackName}
         });
     }
 });
+
+// =========================
+// ランキング登録
+// =========================
+
+app.post("/ranking", async (req, res) => {
+    try {
+        const {
+            playerName,
+            score,
+            attackName,
+            attackType
+        } = req.body;
+
+        // 最低限のチェック
+        if (!playerName || typeof score !== "number") {
+            return res.status(400).json({
+                error: "ランキングデータが不正です"
+            });
+        }
+
+        const { data, error } = await supabase
+            .from("rankings")
+            .insert([
+                {
+                    player_name: playerName.slice(0, 12),
+                    score: Math.max(0, Math.floor(score)),
+                    attack_name: String(attackName || "").slice(0, 20),
+                    attack_type: String(attackType || "").slice(0, 10)
+                }
+            ])
+            .select();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            data: data
+        });
+
+    } catch (error) {
+        console.error("ランキング登録エラー:", error);
+
+        res.status(500).json({
+            error: "ランキング登録に失敗しました"
+        });
+    }
+});
+
+// =========================
+// TOP10取得
+// =========================
+
+app.get("/ranking", async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("rankings")
+            .select("player_name, score, attack_name, attack_type")
+            .order("score", { ascending: false })
+            .limit(10);
+
+        if (error) throw error;
+
+        res.json(data);
+
+    } catch (error) {
+        console.error("ランキング取得エラー:", error);
+
+        res.status(500).json({
+            error: "ランキング取得に失敗しました"
+        });
+    }
+});
+
+// =========================
+// サーバー起動
+// =========================
 
 app.listen(process.env.PORT || 3000, () => {
     console.log("サーバー起動");
