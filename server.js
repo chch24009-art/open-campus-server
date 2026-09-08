@@ -159,6 +159,40 @@ app.get("/ranking", async (req, res) => {
 });
 
 // =========================
+// ランキング全削除（管理者用）
+// =========================
+
+app.delete("/ranking", async (req, res) => {
+    try {
+        const adminKey = req.headers["x-admin-key"];
+
+        if (!adminKey || adminKey !== process.env.ADMIN_RESET_KEY) {
+            return res.status(403).json({
+                error: "管理者キーが違います"
+            });
+        }
+
+        const { error } = await supabase
+            .from("rankings")
+            .delete()
+            .neq("id", -1);
+
+        if (error) throw error;
+
+        res.json({
+            success: true
+        });
+
+    } catch (error) {
+        console.error("ランキング削除エラー:", error);
+
+        res.status(500).json({
+            error: "ランキング削除に失敗しました"
+        });
+    }
+});
+
+// =========================
 // サーバー起動
 // =========================
 
